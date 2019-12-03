@@ -1,72 +1,55 @@
+use std::fs;
+use std::dbg;
+
 fn main() {
-    day_one_p1();
-    day_one_p2();
+    let contents = fs::read_to_string("input.txt")
+        .expect("Something went wrong reading the file");
+    let code = contents.trim();
+    println!("{}", interpret_intcode(&code));
+
+    println!("{:?}", brute_force(&code, 19690720));
 }
 
-fn day_one_p1() {
-    let input = vec![
-        105311, 117290, 97762, 124678, 132753, 114635, 114137,
-        96208, 82957, 148510, 75509, 120845, 80279, 112588,
-        136983, 91546, 55087, 98239, 58629, 59526, 121740,
-        133887, 96246, 53621, 88458, 144101, 67449, 114870,
-        75125, 126117, 118155, 108888, 128347, 121556, 65380,
-        106487, 149660, 89018, 118897, 91556, 147829, 123137,
-        130352, 51301, 102756, 83357, 97466, 78364, 82291,
-        83367, 72243, 107128, 87975, 93719, 114888, 71559,
-        57757, 145975, 74254, 102427, 117302, 118842, 105979,
-        134735, 123676, 83647, 101511, 117834, 70884, 88288,
-        55444, 71415, 143464, 142131, 51118, 109435, 87841,
-        107406, 71379, 124659, 79427, 110357, 114485, 141168,
-        62923, 113921, 106154, 67468, 132601, 76112, 84953,
-        124290, 55476, 88965, 107153, 148407, 62584, 112851,
-        71564, 145569];
-
-    let result = input.into_iter().map(|x| calculate_fuel(x)).sum::<i64>();
-    println!("{}", result);
+pub fn interpret_intcode(code: &str) -> String {
+    let mut v: Vec<i64> = code.split(',').map(|x| x.parse().unwrap()).collect();
+    interpret(&mut v);
+    v.into_iter().map(|x| x.to_string()).collect::<Vec<String>>().join(",")
 }
 
-fn day_one_p2() {
-    let input = vec![
-        105311, 117290, 97762, 124678, 132753, 114635, 114137,
-        96208, 82957, 148510, 75509, 120845, 80279, 112588,
-        136983, 91546, 55087, 98239, 58629, 59526, 121740,
-        133887, 96246, 53621, 88458, 144101, 67449, 114870,
-        75125, 126117, 118155, 108888, 128347, 121556, 65380,
-        106487, 149660, 89018, 118897, 91556, 147829, 123137,
-        130352, 51301, 102756, 83357, 97466, 78364, 82291,
-        83367, 72243, 107128, 87975, 93719, 114888, 71559,
-        57757, 145975, 74254, 102427, 117302, 118842, 105979,
-        134735, 123676, 83647, 101511, 117834, 70884, 88288,
-        55444, 71415, 143464, 142131, 51118, 109435, 87841,
-        107406, 71379, 124659, 79427, 110357, 114485, 141168,
-        62923, 113921, 106154, 67468, 132601, 76112, 84953,
-        124290, 55476, 88965, 107153, 148407, 62584, 112851,
-        71564, 145569];
-
-    let result = input.into_iter().map(|x| calculate_fuel_with_fuel_mass(x)).sum::<i64>();
-    println!("{}", result);
-}
-
-pub fn calculate_fuel(mass: i64) -> i64 {
-    // Fuel required to launch a given module is based on its mass. 
-    // Specifically, to find the fuel required for a module, take its mass,
-    // divide by three, round down, and subtract 2.
-    (mass/3) - 2
-}
-
-pub fn calculate_fuel_with_fuel_mass(mass: i64) -> i64 {
-    // Fuel required to launch a given module is based on its mass. 
-    // Specifically, to find the fuel required for a module, take its mass,
-    // divide by three, round down, and subtract 2.
-    let mut fuel_cost = (mass/3) - 2;
-    let mut i = 0i64;
-    
-    while fuel_cost > 0 {
-        i += fuel_cost;
-        fuel_cost = calculate_fuel(fuel_cost);
+fn interpret(v: &mut [i64]) { 
+    for i in (0..v.len()).step_by(4) {
+        if i+3 > v.len() { break }
+        let [opcode, left, right, loc] = [v[i], v[i+1], v[i+2], v[i+3]];
+        match opcode {
+            1 => add_op(v, left, right, loc),
+            2 => mult_op(v, left, right, loc),
+            99 => break,
+            _ => ()
+        }
     }
+}
 
-    i 
+fn add_op(v: &mut [i64], left: i64, right: i64, loc: i64) {
+    v[loc as usize] = v[left as usize] + v[right as usize]
+}
+
+fn mult_op(v: &mut [i64], left: i64, right: i64, loc: i64) {
+    v[loc as usize] = v[left as usize] * v[right as usize]
+}
+
+pub fn brute_force(code: &str, n: i64) -> i64 {
+    for j in 0..99 {
+        for k in 0..99 {
+            let mut v: Vec<i64> = code.split(',').map(|x| x.parse().unwrap()).collect();
+            v[1] = j;
+            v[2] = k;
+            interpret(&mut v);
+            if v[0] == n {
+                return j * 100 + k;
+            }
+        }
+    }
+    0
 }
 
 #[cfg(test)]
@@ -74,50 +57,31 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-    mod day_one {
+    mod two {
         use super::*;
         #[test]
         fn test_ex_1() {
-            assert_eq!(calculate_fuel(12), 2);
-        }
-
-        #[test]
-        fn test_ex_2() {
-            assert_eq!(calculate_fuel(14), 2);
-        }
-
-        #[test]
-        fn test_ex_3() {
-            assert_eq!(calculate_fuel(1969), 654);
-        }
-
-        #[test]
-        fn test_ex_4() {
-            assert_eq!(calculate_fuel(100_756), 33583);
-        }
-
-        #[test]
-        fn test_ex_5() {
-            assert_eq!(calculate_fuel_with_fuel_mass(14), 2);
-        }
-
-        #[test]
-        fn test_ex_6() {
-            assert_eq!(calculate_fuel_with_fuel_mass(1969), 966);
-        }
-
-        #[test]
-        fn test_ex_7() {
-            assert_eq!(calculate_fuel_with_fuel_mass(100756), 50346);
-        }
-    }
-
-    mod day_two {
-        use super::*;
-        #[test]
-        fn test_ex_1() {
-            assert_eq!(calculate_fuel(12), 2);
+            assert_eq!(interpret_intcode("1,0,0,0,99"), "2,0,0,0,99");
         }
         
+        #[test]
+        fn test_ex_2() {
+            assert_eq!(interpret_intcode("2,3,0,3,99"), "2,3,0,6,99");
+        }
+        
+        #[test]
+        fn test_ex_3() {
+            assert_eq!(interpret_intcode("2,4,4,5,99,0"), "2,4,4,5,99,9801");
+        }
+        
+        #[test]
+        fn test_ex_4() {
+            assert_eq!(interpret_intcode("1,1,1,4,99,5,6,0,99"), "30,1,1,4,2,5,6,0,99");
+        }
+        
+        // #[test]
+        // fn test_ex_5() {
+        //     assert_eq!(brute_force(1202), Some((12, 2)));
+        // }
     }
 }
